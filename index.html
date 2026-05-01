@@ -100,7 +100,7 @@
 
   </div>
 
-  <audio id="bgMusic" src="music.mp3" loop></audio>
+  <audio id="bgMusic" src="music.mp3" loop autoplay></audio>
 
   <script>
     const pagesData = [
@@ -108,6 +108,7 @@
       { image: 'images/page2.jpg' },
       { image: 'images/page3.jpg' },
       { image: 'images/page4.jpg' },
+      { image: 'images/page5.jpg' } // ✅ added page 5
     ];
 
     const viewer = document.getElementById('viewer');
@@ -131,14 +132,19 @@
     function updatePageIndicator() {
       const scrollTop = viewer.scrollTop;
       const pageHeight = viewer.clientHeight;
-
       const index = Math.round(scrollTop / pageHeight);
+
       pageCount.textContent = `Page ${index + 1} of ${pagesData.length}`;
     }
 
+    // 🎵 Try autoplay (works on desktop, limited on mobile)
     function tryStartMusic() {
       music.play().catch(() => {});
     }
+
+    // Fallback for mobile autoplay restrictions
+    document.addEventListener('click', tryStartMusic, { once: true });
+    document.addEventListener('touchstart', tryStartMusic, { once: true });
 
     viewer.addEventListener('scroll', updatePageIndicator);
 
@@ -152,7 +158,8 @@
       }
     });
 
-    document.addEventListener('click', tryStartMusic, { once: true });
+    // Try autoplay immediately
+    window.addEventListener('load', tryStartMusic);
 
     buildPages();
   </script>
