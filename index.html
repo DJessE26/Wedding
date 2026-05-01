@@ -3,121 +3,82 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Mobile Page Viewer</title>
+  <title>Scroll Page Viewer</title>
 
   <style>
     * {
       box-sizing: border-box;
+      margin: 0;
+      padding: 0;
       -webkit-tap-highlight-color: transparent;
-      user-select: none;
     }
 
     html, body {
-      margin: 0;
-      width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #120c08;
       font-family: Georgia, serif;
-      touch-action: pan-y;
-    }
-
-    body {
+      background: #120c08;
       color: #fff;
     }
 
     .app {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
       height: 100dvh;
-      overflow: hidden;
-      background:
-        radial-gradient(circle at top, rgba(90, 58, 35, 0.35), transparent 45%),
-        linear-gradient(180deg, #2a1c14 0%, #120c08 100%);
+      display: flex;
+      flex-direction: column;
     }
 
     .topbar {
-      position: absolute;
+      position: fixed;
       top: max(14px, env(safe-area-inset-top));
       left: 14px;
       right: 14px;
-      z-index: 20;
+      z-index: 10;
       display: flex;
       justify-content: space-between;
-      align-items: center;
     }
 
     .pill, .music-btn {
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.4);
+      border: 1px solid rgba(255,255,255,0.1);
       backdrop-filter: blur(8px);
-      color: #fff;
       border-radius: 999px;
       padding: 10px 14px;
       font-size: 12px;
+      color: #fff;
     }
 
     .viewer {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding:
-        calc(max(64px, env(safe-area-inset-top) + 52px))
-        14px
-        calc(max(72px, env(safe-area-inset-bottom) + 56px));
-    }
-
-    .book-wrap {
-      width: min(92vw, 460px);
-      height: min(78dvh, 760px);
-      perspective: 2000px;
-      position: relative;
-    }
-
-    .book {
-      position: relative;
-      width: 100%;
-      height: 100%;
+      flex: 1;
+      overflow-y: auto;
+      scroll-snap-type: y mandatory;
+      -webkit-overflow-scrolling: touch;
     }
 
     .page {
-      position: absolute;
-      inset: 0;
-      transform-origin: left center;
-      transition: transform 0.9s cubic-bezier(0.22, 0.8, 0.2, 1);
-      border-radius: 20px;
-      overflow: hidden;
-      background: #f8f1e7;
-      box-shadow: 0 16px 30px rgba(0,0,0,0.28);
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      scroll-snap-align: start;
     }
 
     .page img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover; /* FIXED */
-      pointer-events: none;
-    }
-
-    .page.flipped {
-      transform: rotateY(-180deg);
-    }
-
-    .bottombar {
-      position: absolute;
-      left: 14px;
-      right: 14px;
-      bottom: max(14px, env(safe-area-inset-bottom));
-      display: flex;
-      justify-content: center;
+      max-width: 100%;
+      max-height: 90vh;
+      width: auto;
+      height: auto;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      background: #f6efe6;
     }
 
     .hint {
-      background: rgba(0,0,0,0.32);
-      border: 1px solid rgba(255,255,255,0.08);
-      backdrop-filter: blur(8px);
+      position: fixed;
+      bottom: max(14px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.4);
       border-radius: 999px;
       padding: 10px 14px;
       font-size: 12px;
@@ -133,15 +94,9 @@
       <button class="music-btn" id="musicBtn">Pause music</button>
     </div>
 
-    <div class="viewer">
-      <div class="book-wrap" id="bookWrap">
-        <div class="book" id="book"></div>
-      </div>
-    </div>
+    <div class="viewer" id="viewer"></div>
 
-    <div class="bottombar">
-      <div class="hint">Swipe left / right</div>
-    </div>
+    <div class="hint">Scroll up / down</div>
 
   </div>
 
@@ -155,77 +110,37 @@
       { image: 'images/page4.jpg' },
     ];
 
-    const book = document.getElementById('book');
+    const viewer = document.getElementById('viewer');
     const pageCount = document.getElementById('pageCount');
     const music = document.getElementById('bgMusic');
     const musicBtn = document.getElementById('musicBtn');
-    const bookWrap = document.getElementById('bookWrap');
 
-    let currentPage = 0;
-    let startX = 0;
-    let currentX = 0;
-    let isDragging = false;
-
-    function buildBook() {
-      book.innerHTML = '';
+    function buildPages() {
+      viewer.innerHTML = '';
 
       pagesData.forEach((page, index) => {
-        const el = document.createElement('div');
-        el.className = 'page';
-        el.style.zIndex = pagesData.length - index;
+        const pageEl = document.createElement('div');
+        pageEl.className = 'page';
 
-        el.innerHTML = `<img src="${page.image}" />`;
-        book.appendChild(el);
+        pageEl.innerHTML = `<img src="${page.image}" alt="Page ${index + 1}" />`;
+
+        viewer.appendChild(pageEl);
       });
-
-      updateBook();
     }
 
-    function updateBook() {
-      const pages = [...document.querySelectorAll('.page')];
+    function updatePageIndicator() {
+      const scrollTop = viewer.scrollTop;
+      const pageHeight = viewer.clientHeight;
 
-      pages.forEach((p, i) => {
-        p.classList.toggle('flipped', i < currentPage);
-      });
-
-      pageCount.textContent = `Page ${Math.min(currentPage + 1, pagesData.length)} of ${pagesData.length}`;
-    }
-
-    function nextPage() {
-      if (currentPage < pagesData.length) {
-        currentPage++;
-        updateBook();
-      }
-    }
-
-    function prevPage() {
-      if (currentPage > 0) {
-        currentPage--;
-        updateBook();
-      }
+      const index = Math.round(scrollTop / pageHeight);
+      pageCount.textContent = `Page ${index + 1} of ${pagesData.length}`;
     }
 
     function tryStartMusic() {
       music.play().catch(() => {});
     }
 
-    function onPointerDown(e) {
-      tryStartMusic();
-      startX = e.clientX;
-      isDragging = true;
-    }
-
-    function onPointerUp(e) {
-      if (!isDragging) return;
-
-      currentX = e.clientX;
-      const deltaX = currentX - startX;
-
-      if (deltaX < -60) nextPage();
-      else if (deltaX > 60) prevPage();
-
-      isDragging = false;
-    }
+    viewer.addEventListener('scroll', updatePageIndicator);
 
     musicBtn.addEventListener('click', () => {
       if (music.paused) {
@@ -237,12 +152,9 @@
       }
     });
 
-    bookWrap.addEventListener('pointerdown', onPointerDown);
-    bookWrap.addEventListener('pointerup', onPointerUp);
-
     document.addEventListener('click', tryStartMusic, { once: true });
 
-    buildBook();
+    buildPages();
   </script>
 </body>
 </html>
